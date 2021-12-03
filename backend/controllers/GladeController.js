@@ -271,7 +271,7 @@ exports.gladeExport = [
       Glade.find().then(glades => {
         if (!glades.length) return apiResponse.successResponseWithData(res, 'Operation success', [])
 
-        const date = new Date().toISOString().split('T')[0]
+        const today = new Date().toISOString().replace(/[^\w]/g, '')
 
         const workbook = new ExcelJS.Workbook()
         workbook.creator = 'system'
@@ -283,58 +283,75 @@ exports.gladeExport = [
         worksheet.mergeCells('O1:P1')
         worksheet.mergeCells('Q1:R1')
 
-        worksheet.columns = [
-          { header: '№ опоры (начало пролета)', key: 'begin_support' },
-          { header: '№ опоры (конец пролета)', key: 'end_support' },
-          { header: 'Длина пролета, м', key: 'span_length' },
-          { header: 'Протяженность лесного участка слева, м', key: 'left_forest_length' },
-          { header: 'Протяженность лесного участка справа, м', key: 'right_forest_length' },
-          { header: 'Глубина лесного участка слева, м', key: 'left_forest_depth' },
-          { header: 'Глубина лесного участка справа, м', key: 'right_forest_depth' },
-          { header: 'Ширина просеки', key: 'clearing_width' },
-          { header: 'Высота основного лесного массива слева, м', key: 'height_forest_left' },
-          { header: 'Высота основного лесного массива справа, м', key: 'height_forest_right' },
-          { header: 'Площадь пролета, га', key: 'span_area' },
-          { header: 'Площадь, подлежащая периодической расчистке, га', key: 'area_to_clear' },
-          { header: 'Сведения о наличии угрожающих деревьях', key: 'presence_of_trees' },
-          { header: 'Дата обследования (дд.мм.гг.)', key: 'inspection_date' },
-          { header: 'Высота ДКР, м', key: 'trees_height' },
-          { header: 'Габарит от провода до ДКР, м', key: 'size_from_wire' },
-          { header: 'Расстояние от крайнего провода до леса слева, м', key: 'wire_left' },
-          { header: 'Расстояние между крайними фазами, м', key: 'between_phases' },
-          { header: 'Расстояние от крайнего провода до леса справа, м', key: 'wire_right' },
-          { header: 'Фактическая, м', key: 'actual' },
-          { header: 'В пределах существующей ширины просеки ВЛ', key: 'within_clearing_width' },
-          { header: 'В пределах охранной зоны ВЛ', key: 'within_security_zone' },
-          { header: 'Количество угрожающих деревьев слева', key: 'from_left' },
-          { header: 'Количество угрожающих деревьев справа', key: 'from_right' },
+        const columns = [
+          '№ опоры (начало пролета)',
+          '№ опоры (конец пролета)',
+          'Длина пролета, м',
+          'Протяженность лесного участка слева, м',
+          'Протяженность лесного участка справа, м',
+          'Глубина лесного участка слева, м',
+          'Глубина лесного участка справа, м',
+          'Расстояние от крайнего провода до леса слева, м',
+          'Расстояние между крайними фазами, м',
+          'Расстояние от крайнего провода до леса справа, м',
+          'Фактическая, м',
+          // ,
+          'Высота основного лесного массива слева, м',
+          'Высота основного лесного массива справа, м',
+          'Площадь пролета, га',
+          'В пределах существующей ширины просеки ВЛ',
+          'В пределах охранной зоны ВЛ',
+          'Количество угрожающих деревьев слева',
+          'Количество угрожающих деревьев справа',
+          // ,
+          // ,
+          'Дата обследования (дд.мм.гг.)',
+          'Высота ДКР, м',
+          'Габарит от провода до ДКР, м',
         ]
 
-        glades.forEach((glade, index) => {
-          const addGlade = {
-            begin_support: glade.begin_support,
-            end_support: glade.end_support,
-            span_length: glade.span_length,
-            left_forest_length: glade.left_forest_length,
-            right_forest_length: glade.right_forest_length,
-            left_forest_depth: glade.left_forest_depth,
-            right_forest_depth: glade.right_forest_depth,
-            height_forest_left: glade.height_forest_left,
-            height_forest_right: glade.height_forest_right,
-            span_area: glade.span_area,
-            inspection_date: glade.inspection_date,
-            trees_height: glade.trees_height,
-            size_from_wire: glade.size_from_wire,
-            wire_left: glade.clearing_width.wire_left,
-            between_phases: glade.clearing_width.between_phases,
-            wire_right: glade.clearing_width.wire_right,
-            actual: glade.clearing_width.actual,
-            within_clearing_width: glade.area_to_clear.within_clearing_width,
-            within_security_zone: glade.area_to_clear.within_security_zone,
-            from_left: glade.presence_of_trees.from_left,
-            from_right: glade.presence_of_trees.from_right,
+        for (let i = 1; i <= 21; i++) worksheet.getRow(2).getCell(i).value = columns[i - 1]
+        worksheet.getCell('H1').value = 'Ширина просеки'
+        worksheet.getCell('O1').value = 'Площадь, подлежащая периодической расчистке, га'
+        worksheet.getCell('Q1').value = 'Сведения о наличии угрожающих деревьях'
+
+        for (let i = 1; i < 26; i++) {
+          worksheet.getColumn(i).alignment = {
+            vertical: 'middle',
+            horizontal: 'center',
+            wrapText: true,
           }
-          console.log(glade)
+          worksheet.getColumn(i).width = 20
+        }
+
+        worksheet.getRow(1).height = 50
+        worksheet.getRow(2).height = 100
+
+        glades.forEach((glade, index) => {
+          const addGlade = [
+            glade.begin_support,
+            glade.end_support,
+            glade.span_length,
+            glade.left_forest_length,
+            glade.right_forest_length,
+            glade.left_forest_depth,
+            glade.right_forest_depth,
+            glade.clearing_width.wire_left,
+            glade.clearing_width.between_phases,
+            glade.clearing_width.wire_right,
+            glade.clearing_width.actual,
+            glade.height_forest_left,
+            glade.height_forest_right,
+            glade.span_area,
+            glade.area_to_clear.within_clearing_width,
+            glade.area_to_clear.within_security_zone,
+            glade.presence_of_trees.from_left,
+            glade.presence_of_trees.from_right,
+            glade.inspection_date,
+            glade.trees_height,
+            glade.size_from_wire,
+          ]
+          // console.log(glade)
           worksheet.insertRow(3 + index, addGlade)
         })
 
@@ -342,7 +359,7 @@ exports.gladeExport = [
           'Content-Type',
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-        res.setHeader('Content-Disposition', `attachment; filename=table${date}.xlsx`)
+        res.setHeader('Content-Disposition', `attachment; filename=table_${today}.xlsx`)
 
         return workbook.xlsx.write(res).then(function () {
           res.status(200).end()
