@@ -37,7 +37,7 @@ const GladeSchema = new Schema(
       from_right: Number, // Количество угрожающих деревьев справа
     },
 
-    inspection_date: Date, // Дата обследования (дд.мм.гг.)
+    inspection_date: String, // Дата обследования (дд.мм.гг.)
     trees_height: Number, // Высота ДКР, м
     size_from_wire: Number, // Габарит от провода до ДКР, м
   },

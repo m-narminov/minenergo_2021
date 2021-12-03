@@ -1,7 +1,10 @@
 const { body, validationResult } = require('express-validator')
 const ExcelJS = require('exceljs')
+const axios = require('axios')
 
 const apiResponse = require('../helpers/apiResponse')
+const constants = require('../helpers/constants').constants
+const utils = require('../helpers/gladeUtils')
 const Glade = require('../models/GladeModel')
 const auth = require('../middlewares/jwt')
 var mongoose = require('mongoose')
@@ -10,6 +13,8 @@ mongoose.set('useFindAndModify', false)
 const columnLetters = 'abcdefglmnstu'.toUpperCase().split('')
 
 function GladeData(data) {
+  const date = utils.getDate(data.inspection_date)
+
   this.begin_support = data.begin_support //№ опоры (начало пролета)
   this.end_support = data.end_support // № опоры (конец пролета)
   this.span_length = data.span_length // Длина пролета, м
@@ -19,31 +24,33 @@ function GladeData(data) {
   this.right_forest_depth = data.right_forest_depth // Глубина лесного участка справа, м
 
   // Ширина просеки
-  this.clearing_width = {
-    wire_left: data.wire_left, // Расстояние от крайнего провода до леса слева, м
-    wire_right: data.wire_right, // Расстояние от крайнего провода до леса справа, м
-    between_phases: data.between_phases, // Расстояние между крайними фазами, м
-    actual: data.actual, // Фактическая, м
-  }
+  this.clearing_width = data.clearing_width
+  // {
+  //   wire_left: data.wire_left, // Расстояние от крайнего провода до леса слева, м
+  //   wire_right: data.wire_right, // Расстояние от крайнего провода до леса справа, м
+  //   between_phases: data.between_phases, // Расстояние между крайними фазами, м
+  //   actual: data.actual, // Фактическая, м
+  // }
 
   this.height_forest_left = data.height_forest_left // Высота основного лесного массива слева, м
   this.height_forest_right = data.height_forest_right // Высота основного лесного массива справа, м
   this.span_area = data.span_area // Площадь пролета, га
 
   // Площадь, подлежащая периодической расчистке, га
-  this.area_to_clear = {
-    within_clearing_width: data.within_clearing_width, // В пределах существующей ширины просеки ВЛ
-    within_security_zone: data.within_security_zone, // В пределах охранной зона ВЛ
-  }
+  this.area_to_clear = data.area_to_clear
+  // {
+  //   within_clearing_width: data.within_clearing_width, // В пределах существующей ширины просеки ВЛ
+  //   within_security_zone: data.within_security_zone, // В пределах охранной зона ВЛ
+  // }
 
   // Сведения о наличии угрожающих деревьях
-  this.presence_of_trees = {
-    from_left: data.from_left, // Количество угрожающих деревьев слева
-    from_right: data.from_right, // Количество угрожающих деревьев справа
-  }
+  this.presence_of_trees = data.presence_of_trees
+  // {
+  //   from_left: data.from_left, // Количество угрожающих деревьев слева
+  //   from_right: data.from_right, // Количество угрожающих деревьев справа
+  // }
 
-  this.inspection_date = new Date(data.inspection_date) // Дата обследования (дд.мм.гг.)
-  this.trees_height = data.trees_height // Высота ДКР, м
+  this.inspection_date = date // Дата обследования (дд.мм.гг.) // Высота ДКР, м
   this.size_from_wire = data.size_from_wire // Габарит от провода до ДКР, м
 }
 
@@ -88,7 +95,7 @@ exports.gladeDetail = [
 exports.gladeCreate = [
   body('begin_support').isLength({ min: 1 }).trim(),
   body('end_support').isLength({ min: 1 }).trim(),
-  body('inspection_date').isLength({ min: 10 }).trim(),
+  // body('inspection_date').isLength({ min: 10 }).trim(),
   (req, res) => {
     try {
       const errors = validationResult(req)
@@ -136,7 +143,35 @@ exports.gladeCreate = [
             return apiResponse.ErrorResponse(res, err)
           }
           let gladeData = new GladeData(glade)
-          return apiResponse.successResponseWithData(res, 'Glade add Success.', gladeData)
+
+          const msg = Object.keys(gladeData).reduce((acc, key) => {
+            let result
+            if (typeof gladeData[key] !== 'object') {
+              result = `${constants.gladeMap[key]}: ${gladeData[key]}\n`
+              if (typeof gladeData[key] === 'object') {
+                result = `${constants.gladeMap[key]}: ${utils.getDate(gladeData[key])}\n`
+              }
+            } else {
+              result = Object.keys(gladeData[key]).reduce((nestAcc, nestKey) => {
+                return nestAcc.concat(
+                  `  ${constants.gladeMap[nestKey]}: ${gladeData[key][nestKey]}\n`
+                )
+              }, '')
+            }
+
+            return acc.concat(result)
+          }, '')
+
+          axios
+            .get(encodeURI(`${constants.telegram}Добавлена информация о просеке\n\n${msg}`))
+            .then(resposne => {
+              // console.log(res)
+              return apiResponse.successResponseWithData(res, 'Glade add Success.', resposne)
+            })
+            .catch(err => {
+              return apiResponse.ErrorResponse(res, err)
+            })
+          //
         })
       }
     } catch (err) {
